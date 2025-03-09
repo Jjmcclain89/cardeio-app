@@ -7,18 +7,17 @@ const prisma = new PrismaClient();
 async function getSets() {
     const response = await fetch('https://api.scryfall.com/sets');
     const body = await response.text();
-    const json = JSON.parse(body);
-    const set_codes = json.data.map((set) => set.code);
-    return set_codes;
+    return JSON.parse(body).data.map((set) => set.code);
 }
 
 async function run() {
-    let setsIngested = 0;
-    const sets = await getSets();
+  const sets = await getSets();
+  let setsIngested = 0;
+  let totalSets = sets.length;
 
     // The scryfall API has a rate limit of 10 requests per second, so use setInterval to make 10 requests per second
     const intervalId = setInterval(function () {
-        console.log(`Total sets ingested: ${setsIngested}`);
+        console.log(`Total sets ingested: ${setsIngested}. ${totalSets - setsIngested} remaining.`);
         const setsToRequest = sets.splice(0, 10);
         setsToRequest.forEach(async (set) => {
             const response = await fetch(
@@ -27,9 +26,9 @@ async function run() {
             const body = await response.text();
             const json = JSON.parse(body);
             console.log(`Ingesting ${set}`);
-            // Create a new record for each card in the set if it doesn't alkready exist, otherwise update the existing record
-            json.data?.forEach((card) => {
-                prisma.card.upsert({
+            // Create a new record for each card in the set if it doesn't already exist, otherwise update the existing record
+            json.data?.forEach(async (card) => {
+                const newCard = await prisma.card.upsert({
                     where: { scryfall_id: card.id },
                     update: {
                         name: card.name,
