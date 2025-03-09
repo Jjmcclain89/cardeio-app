@@ -18,7 +18,8 @@ model Card {
   scryfall_id    String?   @unique
   name           String?
   mana_cost      String?
-  type_line      String?
+  subtypes       String[]
+  supertypes     String[]
   oracle_text    String?
   power          Int?
   toughness      Int?

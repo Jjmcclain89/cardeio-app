@@ -10,14 +10,27 @@ async function getSets() {
     return JSON.parse(body).data.map((set) => set.code);
 }
 
+function parseTypes(typeLine) {
+    if (typeLine === undefined) {
+        return { supertypes: [], subtypes: [] };
+    }
+    const supertypes = typeLine.split('—')[0].trim().split(' ');
+    const subtypes = typeLine.split('—')[1]?.trim().split(' ') || [];
+    return { supertypes, subtypes };
+}
+
 async function run() {
-  const sets = await getSets();
-  let setsIngested = 0;
-  let totalSets = sets.length;
+    const sets = await getSets();
+    let setsIngested = 0;
+    let totalSets = sets.length;
 
     // The scryfall API has a rate limit of 10 requests per second, so use setInterval to make 10 requests per second
     const intervalId = setInterval(function () {
-        console.log(`Total sets ingested: ${setsIngested}. ${totalSets - setsIngested} remaining.`);
+        console.log(
+            `Total sets ingested: ${setsIngested}. ${
+                totalSets - setsIngested
+            } remaining.`
+        );
         const setsToRequest = sets.splice(0, 10);
         setsToRequest.forEach(async (set) => {
             const response = await fetch(
@@ -28,12 +41,14 @@ async function run() {
             console.log(`Ingesting ${set}`);
             // Create a new record for each card in the set if it doesn't already exist, otherwise update the existing record
             json.data?.forEach(async (card) => {
+                const { supertypes, subtypes } = parseTypes(card.type_line);
                 const newCard = await prisma.card.upsert({
                     where: { scryfall_id: card.id },
                     update: {
                         name: card.name,
                         mana_cost: card.mana_cost,
-                        type_line: card.type_line,
+                        supertypes,
+                        subtypes,
                         oracle_text: card.oracle_text,
                         power: parseInt(card.power),
                         toughness: parseInt(card.toughness),
@@ -47,7 +62,8 @@ async function run() {
                         scryfall_id: card.id,
                         name: card.name,
                         mana_cost: card.mana_cost,
-                        type_line: card.type_line,
+                        supertypes,
+                        subtypes,
                         oracle_text: card.oracle_text,
                         power: parseInt(card.power),
                         toughness: parseInt(card.toughness),
